@@ -53,6 +53,12 @@ public final class CopiedBlockType implements IBlockType {
         this.fullBlock = source.defaultBlockState().canOcclude();
         this.properties = selectProperties(source, fullBlock);
         this.fullFace = (state, side) -> {
+            // Until source shapes are safe to query, assume faces are not full.
+            // FramedBlocks may cache this result while building its state cache;
+            // claiming a full cube here makes slabs and other partial blocks cull neighbors incorrectly.
+            if (!sourceShapesEnabled) {
+                return false;
+            }
             try {
                 return Block.isFaceFull(shapeFor(state), side);
             } catch (Throwable exception) {

@@ -111,7 +111,7 @@ public final class FramedRecipePack extends AbstractPackResources {
                 return index;
             }
             Map<String, IoSupplier<InputStream>> built = new HashMap<>();
-            for (CopiedFramedBlock block : FramedRegistry.BLOCKS) {
+            for (CopiedFramedBlock block : FramedRegistry.uniqueShapeBlocks()) {
                 ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
                 if (id == null) {
                     continue;
@@ -120,7 +120,7 @@ public final class FramedRecipePack extends AbstractPackResources {
                 String json = "{\"type\":\"minecraft:stonecutting\",\"ingredient\":{\"item\":\"" + FRAME_CUBE + "\"},\"result\":\"" + result + "\",\"count\":1}";
                 built.put("recipes/stonecutting/" + id.getPath() + ".json", supplier(json));
             }
-            FramedAdditions.LOGGER.info("Added {} stonecutter recipes from {}", built.size(), FRAME_CUBE);
+            FramedAdditions.LOGGER.info("Added {} unique-shape stonecutter recipes from {}", built.size(), FRAME_CUBE);
             index = built;
             indexedBlocks = blocks;
             return built;

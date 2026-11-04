@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.storage.loot.LootParams;
+import org.jetbrains.annotations.Nullable;
 import xfacthd.framedblocks.api.block.AbstractFramedBlock;
 import xfacthd.framedblocks.api.block.FramedBlockEntity;
 import xfacthd.framedblocks.api.block.FramedProperties;
@@ -153,7 +154,29 @@ public class CopiedFramedBlock extends AbstractFramedBlock {
 
     @Override
     public MutableComponent getName() {
-        return Component.translatable("item.framed_additions.copy", source.getName());
+        String path = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(source).getPath();
+        String shape = shapeLabel(path);
+        return Component.translatable("item.framed_additions.copy", shape == null ? source.getName() : Component.literal(shape));
+    }
+
+    @Nullable
+    static String shapeLabel(String path) {
+        String[][] suffixes = {
+                {"_fence_gate", "Fence Gate"}, {"_pressure_plate", "Pressure Plate"},
+                {"_trapdoor", "Trapdoor"}, {"_stairs", "Stairs"}, {"_slab", "Slab"},
+                {"_button", "Button"}, {"_fence", "Fence"},
+                {"_hanging_sign", "Hanging Sign"}, {"_wall_sign", "Wall Sign"},
+                {"_wall_banner", "Wall Banner"}, {"_wall_head", "Wall Head"}, {"_wall_skull", "Wall Head"},
+                {"_door", "Door"}, {"_banner", "Banner"}, {"_head", "Head"}, {"_skull", "Head"},
+                {"_wall", "Wall"},
+                {"_bell", "Bell"}, {"_sign", "Sign"}, {"_pane", "Pane"}, {"_bars", "Bars"}
+        };
+        for (String[] suffix : suffixes) {
+            if (path.endsWith(suffix[0])) {
+                return suffix[1];
+            }
+        }
+        return null;
     }
 
     @Override

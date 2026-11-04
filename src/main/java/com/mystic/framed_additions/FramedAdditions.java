@@ -9,6 +9,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -24,7 +27,9 @@ import xfacthd.framedblocks.api.block.IFramedBlock;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Mod(FramedAdditions.MODID)
 public class FramedAdditions {
@@ -61,9 +66,14 @@ public class FramedAdditions {
             }));
 
             int registered = 0;
+            Set<String> registeredShapes = new HashSet<>();
             for (Block source : sources) {
                 ResourceLocation sourceId = ForgeRegistries.BLOCKS.getKey(source);
                 if (sourceId == null || !shouldCopy(source, sourceId)) {
+                    continue;
+                }
+                String shapeCategory = FramedRegistry.categoryKey(source);
+                if (registeredShapes.contains(shapeCategory)) {
                     continue;
                 }
 
@@ -72,6 +82,7 @@ public class FramedAdditions {
                     Block framed = CopiedFramedBlock.create(source);
                     event.register(Registries.BLOCK, id, () -> framed);
                     FramedRegistry.BLOCKS.add((CopiedFramedBlock) framed);
+                    registeredShapes.add(shapeCategory);
                     registered++;
                 } catch (Throwable exception) {
                     LOGGER.warn("Skipped framed copy of {}", sourceId, exception);
@@ -84,10 +95,21 @@ public class FramedAdditions {
             if (MODID.equals(sourceId.getNamespace())) {
                 return false;
             }
+            if ("bubble_column".equals(sourceId.getPath())) {
+                return false;
+            }
             if (source instanceof IFramedBlock) {
                 return false;
             }
-            return !source.defaultBlockState().isAir();
+            if (source instanceof LiquidBlock) {
+                return false;
+            }
+            BlockState defaultState = source.defaultBlockState();
+            // Blocks rendered through a block entity (signs, skulls, bells, chests, etc.)
+            // have no usable baked quads for the copied-model renderer.
+            return defaultState.getRenderShape() == RenderShape.MODEL
+                    && !defaultState.isAir()
+                    && defaultState.getFluidState().isEmpty();
         }
 
         private static void registerItems(RegisterEvent event) {
@@ -129,8 +151,8 @@ public class FramedAdditions {
                             .icon(() -> FramedRegistry.ICON == null ? new ItemStack(Items.ITEM_FRAME) : new ItemStack(FramedRegistry.ICON))
                             .withSearchBar()
                             .displayItems((parameters, output) -> {
-                                for (Item item : FramedRegistry.ITEMS) {
-                                    output.accept(item);
+                                for (CopiedFramedBlock block : FramedRegistry.uniqueShapeBlocks()) {
+                                    output.accept(block);
                                 }
                             })
                             .build()

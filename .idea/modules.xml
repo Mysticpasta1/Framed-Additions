@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/framed-additions.main.iml" filepath="$PROJECT_DIR$/.idea/modules/framed-additions.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/framed-additions.test.iml" filepath="$PROJECT_DIR$/.idea/modules/framed-additions.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/Framed-Additions.iml" filepath="$PROJECT_DIR$/.idea/Framed-Additions.iml" />
     </modules>
   </component>
 </project>
