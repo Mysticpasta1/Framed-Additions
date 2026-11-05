@@ -2,7 +2,6 @@ package com.mystic.framed_additions.client;
 
 import com.mystic.framed_additions.CopiedFramedBlock;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
@@ -14,22 +13,34 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.ChunkRenderTypeSet;
-import net.minecraftforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.ChunkRenderTypeSet;
+import net.neoforged.neoforge.client.model.BakedModelWrapper;
+import net.neoforged.neoforge.client.model.EmptyModel;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.common.util.TriState;
 import org.jetbrains.annotations.Nullable;
-import xfacthd.framedblocks.api.model.BakedModelProxy;
 
 import java.util.List;
 
-public final class LazyCopiedModel extends BakedModelProxy {
+public final class LazyCopiedModel extends BakedModelWrapper<BakedModel> {
     private static final ThreadLocal<Boolean> RESOLVING = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private final CopiedFramedBlock block;
+    private final TextureAtlasSprite particle;
+    private final ItemTransforms transforms;
+    private final boolean gui3d;
+    private final boolean ambientOcclusion;
+    private final boolean blockLight;
     private volatile CopiedFramedModel resolved;
 
-    public LazyCopiedModel(CopiedFramedBlock block) {
-        super(Minecraft.getInstance().getModelManager().getMissingModel());
+    public LazyCopiedModel(CopiedFramedBlock block, TextureAtlasSprite particle, ItemTransforms transforms, boolean gui3d, boolean ambientOcclusion, boolean blockLight) {
+        super(EmptyModel.BAKED);
         this.block = block;
+        this.particle = particle;
+        this.transforms = transforms;
+        this.gui3d = gui3d;
+        this.ambientOcclusion = ambientOcclusion;
+        this.blockLight = blockLight;
     }
 
     @Override
@@ -58,38 +69,30 @@ public final class LazyCopiedModel extends BakedModelProxy {
 
     @Override
     public List<BakedModel> getRenderPasses(ItemStack stack, boolean fabulous) {
+        // BakedModelWrapper forwards this to EmptyModel, which has no faces.
         CopiedFramedModel model = model();
-        return model == null ? super.getRenderPasses(stack, fabulous) : model.getRenderPasses(stack, fabulous);
+        return List.of(model == null ? this : model);
     }
 
     @Override
     public boolean useAmbientOcclusion() {
-        CopiedFramedModel model = model();
-        return model == null ? super.useAmbientOcclusion() : model.useAmbientOcclusion();
+        return ambientOcclusion;
     }
 
     @Override
-    public boolean useAmbientOcclusion(BlockState state) {
+    public TriState useAmbientOcclusion(BlockState state, ModelData data, RenderType renderType) {
         CopiedFramedModel model = model();
-        return model == null ? super.useAmbientOcclusion(state) : model.useAmbientOcclusion(state);
-    }
-
-    @Override
-    public boolean useAmbientOcclusion(BlockState state, RenderType renderType) {
-        CopiedFramedModel model = model();
-        return model == null ? super.useAmbientOcclusion(state, renderType) : model.useAmbientOcclusion(state, renderType);
+        return model == null ? super.useAmbientOcclusion(state, ModelData.EMPTY, null) : model.useAmbientOcclusion(state, data, renderType);
     }
 
     @Override
     public boolean isGui3d() {
-        CopiedFramedModel model = model();
-        return model == null ? super.isGui3d() : model.isGui3d();
+        return gui3d;
     }
 
     @Override
     public boolean usesBlockLight() {
-        CopiedFramedModel model = model();
-        return model == null ? super.usesBlockLight() : model.usesBlockLight();
+        return blockLight;
     }
 
     @Override
@@ -100,8 +103,8 @@ public final class LazyCopiedModel extends BakedModelProxy {
 
     @Override
     public TextureAtlasSprite getParticleIcon() {
-        CopiedFramedModel model = model();
-        return model == null ? super.getParticleIcon() : model.getParticleIcon();
+        // Called while the block-state model is assembled, before the atlas is uploaded.
+        return particle;
     }
 
     @Override
@@ -117,8 +120,7 @@ public final class LazyCopiedModel extends BakedModelProxy {
 
     @Override
     public ItemTransforms getTransforms() {
-        CopiedFramedModel model = model();
-        return model == null ? super.getTransforms() : model.getTransforms();
+        return transforms;
     }
 
     @Override
@@ -127,8 +129,7 @@ public final class LazyCopiedModel extends BakedModelProxy {
         if (model == null) {
             return super.applyTransform(context, poseStack, applyLeftHandTransform);
         }
-        model.applyTransform(context, poseStack, applyLeftHandTransform);
-        return this;
+        return model.applyTransform(context, poseStack, applyLeftHandTransform);
     }
 
     @Nullable
@@ -148,6 +149,6 @@ public final class LazyCopiedModel extends BakedModelProxy {
     }
 
     private CopiedFramedModel create() {
-        return new CopiedFramedModel(block);
+        return new CopiedFramedModel(block, particle);
     }
 }

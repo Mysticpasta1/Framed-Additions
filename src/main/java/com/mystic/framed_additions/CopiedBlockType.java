@@ -2,14 +2,15 @@ package com.mystic.framed_additions;
 
 import com.google.common.collect.ImmutableList;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 import xfacthd.framedblocks.api.block.FramedProperties;
 import xfacthd.framedblocks.api.predicate.contex.ConTexMode;
@@ -22,11 +23,17 @@ import xfacthd.framedblocks.api.type.IBlockType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
 public final class CopiedBlockType implements IBlockType {
     private static final long MAX_VARIANT_STATES = 2048L;
+    // Kept ahead of facing and similar properties when a source block would pass the variant cap.
+    // These are the properties that change light, cooking, compost level, and sculk phase.
+    private static final Set<String> BEHAVIOR_FIRST = Set.of(
+            "lit", "level", "candles", "pickles", "charges", "power", "powered", "waterlogged", "sculk_sensor_phase"
+    );
 
     private final Block source;
     private final String name;
@@ -49,7 +56,7 @@ public final class CopiedBlockType implements IBlockType {
 
     private CopiedBlockType(Block source) {
         this.source = source;
-        this.name = String.valueOf(ForgeRegistries.BLOCKS.getKey(source));
+        this.name = String.valueOf(BuiltInRegistries.BLOCK.getKey(source));
         this.fullBlock = source.defaultBlockState().canOcclude();
         this.properties = selectProperties(source, fullBlock);
         this.fullFace = (state, side) -> {
@@ -73,6 +80,10 @@ public final class CopiedBlockType implements IBlockType {
 
     public List<Property<?>> properties() {
         return properties;
+    }
+
+    Block source() {
+        return source;
     }
 
     public BlockState toSourceState(@Nullable BlockState framed) {
@@ -107,38 +118,67 @@ public final class CopiedBlockType implements IBlockType {
     private VoxelShape shapeOf(BlockState state) {
         try {
             VoxelShape shape = state.getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO, CollisionContext.empty());
-            return shape == null ? Shapes.block() : shape;
+            if (shape == null) {
+                return Shapes.block();
+            }
+            // Bamboo and other offset blocks shift the outline by position. The cached shape is
+            // queried at the origin, so that shift would leave the unshifted model outside the box.
+            Vec3 offset = state.getOffset(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+            if (offset.x != 0.0D || offset.y != 0.0D || offset.z != 0.0D) {
+                shape = shape.move(-offset.x, -offset.y, -offset.z);
+            }
+            return shape;
         } catch (Throwable exception) {
             if (!loggedShapeFailure) {
                 loggedShapeFailure = true;
-                FramedAdditions.LOGGER.warn("Using a full cube shape for {}: {}", ForgeRegistries.BLOCKS.getKey(source), exception.toString());
+                FramedAdditions.LOGGER.warn("Using a full cube shape for {}: {}", BuiltInRegistries.BLOCK.getKey(source), exception.toString());
             }
             return Shapes.block();
         }
     }
 
     private static List<Property<?>> selectProperties(Block source, boolean solidCamo) {
-        List<Property<?>> selected = new ArrayList<>();
-        long states = 1L;
+        List<Property<?>> behavior = new ArrayList<>();
+        List<Property<?>> rest = new ArrayList<>();
         for (Property<?> property : source.getStateDefinition().getProperties()) {
             if (reserved(property, solidCamo)) {
                 continue;
             }
+            if (BEHAVIOR_FIRST.contains(property.getName())) {
+                behavior.add(property);
+            } else {
+                rest.add(property);
+            }
+        }
+        List<Property<?>> selected = new ArrayList<>();
+        long states = 1L;
+        states = appendProperties(source, selected, states, behavior);
+        if (states > 0L) {
+            appendProperties(source, selected, states, rest);
+        }
+        return List.copyOf(selected);
+    }
+
+    /**
+     * @return the new variant count, or {@code -1} once a property does not fit
+     */
+    private static long appendProperties(Block source, List<Property<?>> selected, long states, List<Property<?>> incoming) {
+        for (Property<?> property : incoming) {
             int values = property.getPossibleValues().size();
             if (values <= 0 || states > MAX_VARIANT_STATES / values) {
                 FramedAdditions.LOGGER.warn(
                         "Keeping {} of {} properties on {} so the framed copy stays within {} variants",
                         selected.size(),
                         source.getStateDefinition().getProperties().size(),
-                        ForgeRegistries.BLOCKS.getKey(source),
+                        BuiltInRegistries.BLOCK.getKey(source),
                         MAX_VARIANT_STATES
                 );
-                break;
+                return -1L;
             }
             states *= values;
             selected.add(property);
         }
-        return List.copyOf(selected);
+        return states;
     }
 
     private static boolean reserved(Property<?> property, boolean solidCamo) {

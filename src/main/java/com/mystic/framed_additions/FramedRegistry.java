@@ -1,24 +1,41 @@
 package com.mystic.framed_additions;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SculkSensorBlock;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import xfacthd.framedblocks.api.block.FramedBlockEntity;
+import org.jetbrains.annotations.Nullable;
+import xfacthd.framedblocks.api.block.blockentity.FramedBlockEntity;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public final class FramedRegistry {
     public static final List<CopiedFramedBlock> BLOCKS = new ArrayList<>();
     public static final List<Item> ITEMS = new ArrayList<>();
     public static Item ICON;
+    public static Item NBT_WAND;
     public static BlockEntityType<FramedBlockEntity> BLOCK_ENTITY;
+
+    @Nullable
+    public static CopiedFramedBlock copyOf(Block source) {
+        for (CopiedFramedBlock block : BLOCKS) {
+            if (block.source() == source) {
+                return block;
+            }
+        }
+        return null;
+    }
 
     public static List<CopiedFramedBlock> uniqueShapeBlocks() {
         Map<String, CopiedFramedBlock> unique = new LinkedHashMap<>();
@@ -32,24 +49,28 @@ public final class FramedRegistry {
         return shapeKey(block.source());
     }
 
-    static String categoryKey(net.minecraft.world.level.block.Block source) {
-        net.minecraft.resources.ResourceLocation sourceId = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(source);
+    static String categoryKey(Block source) {
+        ResourceLocation sourceId = BuiltInRegistries.BLOCK.getKey(source);
         if (sourceId != null) {
             String label = CopiedFramedBlock.shapeLabel(sourceId.getPath());
             if (label != null) {
-                return "type:" + label.toLowerCase(java.util.Locale.ROOT);
+                return "type:" + label.toLowerCase(Locale.ROOT);
             }
             return "block:" + sourceId;
         }
         return "block:" + System.identityHashCode(source);
     }
 
-    static String shapeKey(net.minecraft.world.level.block.Block source) {
-        net.minecraft.resources.ResourceLocation sourceId = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(source);
+    static String shapeKey(Block source) {
+        ResourceLocation sourceId = BuiltInRegistries.BLOCK.getKey(source);
+        // A sculk sensor's outline matches a slab, which would hide it from the creative tab.
+        if (source instanceof SculkSensorBlock) {
+            return "block:" + sourceId;
+        }
         if (sourceId != null) {
             String label = CopiedFramedBlock.shapeLabel(sourceId.getPath());
             if (label != null) {
-                return "type:" + label.toLowerCase(java.util.Locale.ROOT);
+                return "type:" + label.toLowerCase(Locale.ROOT);
             }
         }
         try {

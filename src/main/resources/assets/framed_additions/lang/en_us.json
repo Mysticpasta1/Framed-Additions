@@ -1,4 +1,7 @@
 {
   "itemGroup.framed_additions": "Framed Additions",
-  "item.framed_additions.copy": "Framed %s"
+  "item.framed_additions.copy": "Framed %s",
+  "item.framed_additions.nbt_wand": "NBT Wand",
+  "message.framed_additions.nbt_wand.on": "Inherited block data on",
+  "message.framed_additions.nbt_wand.off": "Inherited block data off"
 }
